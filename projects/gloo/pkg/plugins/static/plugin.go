@@ -70,6 +70,7 @@ func (p *plugin) Init(params plugins.InitParams) {
 }
 
 func (p *plugin) ProcessUpstream(params plugins.Params, in *v1.Upstream, out *envoy_config_cluster_v3.Cluster) error {
+	fmt.Println("YOSSI: static upstream plugin process upstream")
 	staticSpec, ok := in.GetUpstreamType().(*v1.Upstream_Static)
 	if !ok {
 		// not ours
