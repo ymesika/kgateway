@@ -70,7 +70,6 @@ func (p *plugin) Init(params plugins.InitParams) {
 }
 
 func (p *plugin) ProcessUpstream(params plugins.Params, in *v1.Upstream, out *envoy_config_cluster_v3.Cluster) error {
-	fmt.Println("YOSSI: static upstream plugin process upstream")
 	staticSpec, ok := in.GetUpstreamType().(*v1.Upstream_Static)
 	if !ok {
 		// not ours
@@ -89,6 +88,7 @@ func (p *plugin) ProcessUpstream(params plugins.Params, in *v1.Upstream, out *en
 	out.ClusterDiscoveryType = &envoy_config_cluster_v3.Cluster_Type{
 		Type: envoy_config_cluster_v3.Cluster_STATIC,
 	}
+	fmt.Printf("number of static upstream hosts: %v\n", len(spec.GetHosts()))
 	for _, host := range spec.GetHosts() {
 		fmt.Printf("static upstream host: %v:%v\n", host.GetAddr(), host.GetPort())
 		if host.GetAddr() == "" {
