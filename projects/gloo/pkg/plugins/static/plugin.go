@@ -89,6 +89,7 @@ func (p *plugin) ProcessUpstream(params plugins.Params, in *v1.Upstream, out *en
 		Type: envoy_config_cluster_v3.Cluster_STATIC,
 	}
 	for _, host := range spec.GetHosts() {
+		fmt.Printf("static upstream host: %v:%v\n", host.GetAddr(), host.GetPort())
 		if host.GetAddr() == "" {
 			return errors.Errorf("addr cannot be empty for host")
 		}
@@ -102,7 +103,7 @@ func (p *plugin) ProcessUpstream(params plugins.Params, in *v1.Upstream, out *en
 		if ip == nil {
 			// can't parse ip so this is a dns hostname.
 			// save the first hostname for use with sni
-			if hostname == "" {
+			if hostname != "" {
 				hostname = host.GetAddr()
 			}
 		}

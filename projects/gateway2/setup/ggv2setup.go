@@ -108,7 +108,7 @@ func StartGGv2WithConfig(ctx context.Context,
 	ctx = contextutils.WithLogger(ctx, "k8s")
 
 	logger := contextutils.LoggerFrom(ctx)
-	logger.Info("starting gloo gateway")
+	logger.Info("YOSSI starting gloo gateway")
 
 	kubeClient, err := createKubeClient(restConfig)
 	if err != nil {
