@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	utilretry "k8s.io/client-go/util/retry"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -621,33 +622,32 @@ func (s *ProxySyncer) syncGatewayStatus(ctx context.Context, logger *slog.Logger
 	err := retry.Do(func() error {
 		s.gatewayStatusMetrics.ResetResources("Gateway")
 
-		for gwnn := range rm.Gateways {
-			gw := gwv1.Gateway{}
-			err := s.mgr.GetClient().Get(ctx, gwnn, &gw)
-			if err != nil {
-				logger.Info("error getting gw", "error", err, "gateway", gwnn.String())
-				return err
-			}
-
+		for gwNN := range rm.Gateways {
 			s.gatewayStatusMetrics.IncResources(StatusSyncResourcesMetricLabels{
-				Namespace: gwnn.Namespace,
-				Name:      gwnn.Name,
-				Resource:  "Gateway",
+				Namespace: gwNN.Namespace,
+				Name:      gwNN.Name,
+				Resource:  wellknown.GatewayKind,
 			})
-
-			gwStatusWithoutAddress := gw.Status
-			gwStatusWithoutAddress.Addresses = nil
-			if status := rm.BuildGWStatus(ctx, gw); status != nil {
-				if !isGatewayStatusEqual(&gwStatusWithoutAddress, status) {
-					gw.Status = *status
-					if err := s.mgr.GetClient().Status().Patch(ctx, &gw, client.Merge); err != nil {
-						logger.Error("error patching gateway status", "error", err, "gateway", gwnn.String())
-						return err
-					}
-					logger.Info("patched gw status", "gateway", gwnn.String())
-				} else {
-					logger.Info("skipping k8s gateway status update, status equal", "gateway", gwnn.String())
+			// Retry on conflict to handle potential resourceVersion changes
+			err := utilretry.RetryOnConflict(utilretry.DefaultRetry, func() error {
+				// Get the latest Gateway from the api server
+				var gw gwv1.Gateway
+				if err := s.mgr.GetClient().Get(ctx, gwNN, &gw); err != nil {
+					return err
 				}
+				// Build new status
+				newStatus := rm.BuildGWStatus(ctx, gw)
+				if newStatus == nil {
+					return nil
+				}
+				// Prepare a patch from the fetched object
+				original := gw.DeepCopy()
+				gw.Status = *newStatus
+				// Patch status
+				return s.mgr.GetClient().Status().Patch(ctx, &gw, client.MergeFrom(original))
+			})
+			if err != nil {
+				logger.Error("failed to update gateway status after retries", "error", err, "gateway", gwNN)
 			}
 		}
 		return nil
