@@ -640,6 +640,10 @@ func (s *ProxySyncer) syncGatewayStatus(ctx context.Context, logger *slog.Logger
 				if newStatus == nil {
 					return nil
 				}
+				// No need to update status if it's equal
+				if isGatewayStatusEqual(&gw.Status, newStatus) {
+					return nil
+				}
 				// Prepare a patch from the fetched object
 				original := gw.DeepCopy()
 				gw.Status = *newStatus
